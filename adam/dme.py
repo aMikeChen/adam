@@ -56,6 +56,9 @@ class DME:
         print("Configured DME model [{}].".format(model_id))
         sleep(0.001)
 
+    def exit(self):
+        api.kdp_end_dme(self, dev_idx)
+
     def __init_kdp_lib(self):
         api.kdp_init_log("/tmp/", "adam.log")
 
