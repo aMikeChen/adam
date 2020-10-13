@@ -13,7 +13,7 @@ class Camera:
         self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
 
         self.frames = []
-        self.isi_img_size = width * height * 2
+        self.image_size = width * height * 2
 
     def capture_frame(self):
         _cv_ret, frame = self.capture.read()
@@ -24,7 +24,7 @@ class Camera:
         frame = cv2.flip(frame, 1)
 
         frame_data = cv2.cvtColor(frame, cv2.COLOR_BGR2BGR565)
-        frame_data = frame_data.reshape(self.isi_img_size)
+        frame_data = frame_data.reshape(self.image_size)
         c_char_p = ctypes.POINTER(ctypes.c_char)
         frame_data = frame_data.astype(np.uint8)
         data_p = frame_data.ctypes.data_as(c_char_p)

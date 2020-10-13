@@ -56,6 +56,23 @@ class DME:
         print("Configured DME model [{}].".format(model_id))
         sleep(0.001)
 
+    def inference(self,
+                  img_buf,
+                  buf_len,
+                  inf_res,
+                  inf_size=0,
+                  res_flag=False,
+                  mode=0,
+                  model_id=0):
+        api.kdp_dme_inference(self.dev_idx,
+                              img_buf,
+                              buf_len,
+                              inf_size,
+                              res_flag,
+                              inf_res,
+                              mode,
+                              model_id)
+
     def exit(self):
         api.kdp_end_dme(self, dev_idx)
 
