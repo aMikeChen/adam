@@ -5,25 +5,22 @@ from adam import constants
 
 KDP_USB_DEV = 1
 
-DME_FWINFO_SIZE = 512
+DME_FIRMWARE_INFO_SIZE = 512
 DME_MODEL_SIZE = 20 * 1024 * 1024
-DME_INF_RES = (ctypes.c_char * 256000)()
 
 class DME:
-    def __init__(self, fwinfo_path):
+    def __init__(self, firmware_info_path):
         self.__init_kdp_lib()
         self.__add_device()
         self.__start_kdp_lib()
-        self.__load_firmware_setup_data_to_device(fwinfo_path)
+        self.__load_firmware_setup_data_to_device(firmware_info_path)
 
     def __del__(self):
         api.kdp_lib_de_init()
-        print("Deinitialized.")
 
     def load_model(self, model_path):
         self.__load_model_to_device(model_path)
         self.__start_dme_mode()
-        print("Loaded model.")
         sleep(0.001)
 
     def configure(self,
@@ -43,7 +40,7 @@ class DME:
                                         image_format)
         data = ctypes.cast(ctypes.byref(config), ctypes.c_char_p)
         data_size = ctypes.sizeof(config)
-        ret, model_id = api.kdp_dme_configure(self.dev_idx,
+        ret, model_id = api.kdp_dme_configure(self.device_indexes,
                                               data,
                                               data_size,
                                               model_id)
@@ -59,10 +56,10 @@ class DME:
                   buf_len,
                   inf_size=0,
                   res_flag=False,
-                  inf_res=DME_INF_RES,
+                  inf_res=(ctypes.c_char * 256000)(),
                   mode=0,
                   model_id=0):
-        return api.kdp_dme_inference(self.dev_idx,
+        return api.kdp_dme_inference(self.device_indexes,
                                      img_buf,
                                      buf_len,
                                      inf_size,
@@ -73,12 +70,12 @@ class DME:
 
     def get_result(self, inf_size):
         inf_res = (ctypes.c_char * inf_size)()
-        api.kdp_dme_retrieve_res(self.dev_idx, 0, inf_size, inf_res)
+        api.kdp_dme_retrieve_res(self.device_indexes, 0, inf_size, inf_res)
 
         return inf_res
 
     def exit(self):
-        api.kdp_end_dme(self, dev_idx)
+        api.kdp_end_dme(self, device_indexes)
 
     def __init_kdp_lib(self):
         api.kdp_init_log("/tmp/", "adam.log")
@@ -89,9 +86,9 @@ class DME:
     def __add_device(self):
         print("Adding device...")
 
-        self.dev_idx = api.kdp_add_dev(KDP_USB_DEV, "")
+        self.device_indexes = api.kdp_add_dev(KDP_USB_DEV, "")
 
-        if self.dev_idx < 0:
+        if self.device_indexes < 0:
             raise "Failed to add device"
 
     def __start_kdp_lib(self):
@@ -100,11 +97,11 @@ class DME:
         if api.kdp_lib_start() < 0:
             raise "Failed to start kdp host lib"
 
-    def __load_firmware_setup_data_to_device(self, fwinfo_path):
+    def __load_firmware_setup_data_to_device(self, firmware_info_path):
         print("Loading models to Kneron Device...")
 
-        self.data = (ctypes.c_char * DME_FWINFO_SIZE)()
-        self.data_size = api.read_file_to_buf(self.data, fwinfo_path, DME_FWINFO_SIZE)
+        self.data = (ctypes.c_char * DME_FIRMWARE_INFO_SIZE)()
+        self.data_size = api.read_file_to_buf(self.data, firmware_info_path, DME_FIRMWARE_INFO_SIZE)
 
         if self.data_size <= 0:
             raise "Failed to read fw setup file"
@@ -119,7 +116,7 @@ class DME:
     def __start_dme_mode(self):
         print("Starting DME mode...")
 
-        ret, ret_size = api.kdp_start_dme(self.dev_idx,
+        ret, ret_size = api.kdp_start_dme(self.device_indexes,
                                           self.model_size,
                                           self.data,
                                           self.data_size,
