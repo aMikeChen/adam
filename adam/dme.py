@@ -7,6 +7,7 @@ KDP_USB_DEV = 1
 
 DME_FWINFO_SIZE = 512
 DME_MODEL_SIZE = 20 * 1024 * 1024
+DME_INF_RES = (ctypes.c_char * 256000)()
 
 class DME:
     def __init__(self, fwinfo_path):
@@ -26,17 +27,14 @@ class DME:
         sleep(0.001)
 
     def configure(self,
-                  model_id=1000,
+                  model_id,
                   output_num=1,
                   image_col=640,
                   image_row=480,
-                  image_ch=3):
+                  image_ch=3,
+                  image_format=constants.IMAGE_FORMAT_SUB128):
         print("Starting DME configure...")
 
-        image_format = (constants.IMAGE_FORMAT_SUB128 |
-                        constants.NPU_FORMAT_RGB565 |
-                        constants.IMAGE_FORMAT_RAW_OUTPUT |
-                        constants.IMAGE_FORMAT_CHANGE_ASPECT_RATIO)
         config = constants.KDPDMEConfig(model_id,
                                         output_num,
                                         image_col,
@@ -59,19 +57,25 @@ class DME:
     def inference(self,
                   img_buf,
                   buf_len,
-                  inf_res,
                   inf_size=0,
                   res_flag=False,
+                  inf_res=DME_INF_RES,
                   mode=0,
                   model_id=0):
-        api.kdp_dme_inference(self.dev_idx,
-                              img_buf,
-                              buf_len,
-                              inf_size,
-                              res_flag,
-                              inf_res,
-                              mode,
-                              model_id)
+        return api.kdp_dme_inference(self.dev_idx,
+                                     img_buf,
+                                     buf_len,
+                                     inf_size,
+                                     res_flag,
+                                     inf_res,
+                                     mode,
+                                     model_id)
+
+    def get_result(self, inf_size):
+        inf_res = (ctypes.c_char * inf_size)()
+        api.kdp_dme_retrieve_res(self.dev_idx, 0, inf_size, inf_res)
+
+        return inf_res
 
     def exit(self):
         api.kdp_end_dme(self, dev_idx)
@@ -106,8 +110,8 @@ class DME:
             raise "Failed to read fw setup file"
 
     def __load_model_to_device(self, model_path):
-        self.img_buf = (ctypes.c_char * DME_MODEL_SIZE)()
-        self.model_size = api.read_file_to_buf(self.img_buf, model_path, DME_MODEL_SIZE)
+        self.p_buf = (ctypes.c_char * DME_MODEL_SIZE)()
+        self.model_size = api.read_file_to_buf(self.p_buf, model_path, DME_MODEL_SIZE)
 
         if self.model_size <= 0:
             raise "Failed to read model file"
@@ -120,7 +124,7 @@ class DME:
                                           self.data,
                                           self.data_size,
                                           0,
-                                          self.img_buf,
+                                          self.p_buf,
                                           self.model_size)
 
         if ret:

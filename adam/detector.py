@@ -1,18 +1,33 @@
 from adam.dme import DME
+from adam import constants
+from adam.structs import ObjectDetectionResult
 import ctypes
+
+FWINFO_PATH = "./models/fw_info.bin"
+MODEL_PATH = "./models/all_models.bin"
 
 class Detector:
     def __init__(self, camera):
         self.camera = camera
-        self.dme = DME("./models/fw_info.bin")
-        self.dme.load_model("./models/all_models.bin")
-        self.dme.configure()
+        self.dme = DME(FWINFO_PATH)
+        self.dme.load_model(MODEL_PATH)
+
+
+        image_format = (constants.IMAGE_FORMAT_SUB128 |
+                        constants.NPU_FORMAT_RGB565)
+        self.dme.configure(model_id=3,
+                           output_num=8,
+                           image_format=image_format)
 
     def detect(self):
         frame, img_buf = self.camera.capture_frame()
-        inf_res = (ctypes.c_char * 256000)()
+        _ret, inf_size, res_flag = self.dme.inference(img_buf=img_buf,
+                                                      buf_len=self.camera.image_size)
 
-        det_res = self.dme.inference(img_buf=img_buf,
-                                     buf_len=self.camera.image_size,
-                                     inf_res=inf_res)
-        print(det_res)
+        return self.__get_detection_result(inf_size, frame)
+
+    def __get_detection_result(self, inf_size, frame):
+        inf_res = self.dme.get_result(inf_size)
+
+        return ctypes.cast(ctypes.byref(inf_res),
+                           ctypes.POINTER(ObjectDetectionResult)).contents
